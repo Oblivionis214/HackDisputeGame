@@ -1,25 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+/**
+ * @title DisputeGameFactory
+ * @author Oblivionis
+ * @notice Factory contract for creating and managing dispute game instances
+ * @dev Uses Clone pattern to reduce gas costs when creating OptimisticDisputeGame instances
+ *      and simultaneously creates corresponding StakingPools as attacker and defender
+ */
+
 import "./DisputeGame/OptimisticDisputeGame.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./StakingPool.sol";
 
-/**
- * @title DisputeGameFactory
- * @dev 用于创建和管理OptimisticDisputeGame实例的工厂合约，使用Clone模式以降低Gas成本
- * 同时创建对应的StakingPool作为attacker和defender
- */
 contract DisputeGameFactory is Ownable {
-    // 使用OpenZeppelin的Clones库
+    // Use OpenZeppelin's Clones library
     using Clones for address;
 
-    // 游戏类型枚举
+    // Game type enumeration
     enum GameType { OPTIMISTIC }
     
-    // 游戏创建事件
+    // Game creation event
     event GameCreated(
         uint256 indexed gameId,
         GameType gameType,
@@ -30,14 +33,14 @@ contract DisputeGameFactory is Ownable {
         uint256 initialStake
     );
     
-    // StakingPool创建事件
+    // StakingPool creation event
     event StakingPoolsCreated(
         uint256 indexed gameId,
         address attackerPoolAddress,
         address defenderPoolAddress
     );
     
-    // 存储所有创建的游戏信息
+    // Store information for all created games
     struct GameInfo {
         GameType gameType;
         address gameAddress;
@@ -50,28 +53,28 @@ contract DisputeGameFactory is Ownable {
         address defenderPool;
     }
     
-    // OptimisticDisputeGame实现合约地址（用作模板）
+    // OptimisticDisputeGame implementation address (used as template)
     address public optimisticGameImplementation;
     
-    // StakingPool实现合约地址（用作模板）
+    // StakingPool implementation address (used as template)
     address public stakingPoolImplementation;
     
-    // 游戏ID到游戏信息的映射
+    // Mapping from game ID to game information
     mapping(uint256 => GameInfo) public games;
     
-    // 用户参与的游戏ID列表
+    // List of game IDs a user has participated in
     mapping(address => uint256[]) public userGames;
     
-    // 游戏总数
+    // Total number of games
     uint256 public gameCount;
     
-    // 游戏超时扩展时间（可由管理员设置）
+    // Game timeout extension (can be set by admin)
     uint256 public defaultTimeoutExtension;
     
     /**
-     * @dev 构造函数
-     * @param _optimisticGameImplementation OptimisticDisputeGame实现合约地址
-     * @param _stakingPoolImplementation StakingPool实现合约地址
+     * @notice Constructor initializes the factory with implementation addresses
+     * @param _optimisticGameImplementation OptimisticDisputeGame implementation contract address
+     * @param _stakingPoolImplementation StakingPool implementation contract address
      */
     constructor(address _optimisticGameImplementation, address _stakingPoolImplementation) Ownable(msg.sender) {
         require(_optimisticGameImplementation != address(0), "Game implementation cannot be zero");
@@ -79,42 +82,43 @@ contract DisputeGameFactory is Ownable {
         
         optimisticGameImplementation = _optimisticGameImplementation;
         stakingPoolImplementation = _stakingPoolImplementation;
-        defaultTimeoutExtension = 2 hours; // 默认超时扩展时间
+        defaultTimeoutExtension = 2 hours; // Default timeout extension
     }
     
     /**
-     * @dev 部署游戏实现合约（在工厂合约部署后需要调用一次）
-     * @return implementation 新部署的实现合约地址
+     * @notice Deploy the game implementation contract
+     * @dev Should be called once after factory deployment
+     * @return implementation Address of the newly deployed implementation contract
      */
     function deployOptimisticGameImplementation() external onlyOwner returns (address implementation) {
-        // 部署一个OptimisticDisputeGame作为实现合约
-        // 注意：这里使用的参数只是占位符，不会被实际使用
+        // Deploy an OptimisticDisputeGame as implementation contract
+        // Note: Parameters used here are just placeholders and won't be used in practice
         OptimisticDisputeGame impl = new OptimisticDisputeGame();
         optimisticGameImplementation = address(impl);
         return optimisticGameImplementation;
     }
     
     /**
-     * @dev 部署StakingPool实现合约
-     * @return implementation 新部署的StakingPool实现合约地址
+     * @notice Deploy the StakingPool implementation contract
+     * @return implementation Address of the newly deployed StakingPool implementation
      */
     function deployStakingPoolImplementation() external onlyOwner returns (address implementation) {
-        // 在新版本中StakingPool构造函数不需要参数
+        // In the new version, StakingPool constructor doesn't require parameters
         StakingPool impl = new StakingPool();
         stakingPoolImplementation = address(impl);
         return stakingPoolImplementation;
     }
     
     /**
-     * @dev 创建新的OptimisticDisputeGame实例（使用Clone模式）并同时创建两个StakingPool
-     * @param _token ERC20代币地址
-     * @param _initialStake 初始stake金额
-     * @param _attackerAsset 攻击者池使用的资产
-     * @param _defenderAsset 防御者池使用的资产
-     * @return gameId 新游戏的ID
-     * @return gameAddress 新游戏合约的地址
-     * @return attackerPoolAddress 攻击者StakingPool地址
-     * @return defenderPoolAddress 防御者StakingPool地址
+     * @notice Create a new OptimisticDisputeGame instance using Clone pattern and simultaneously create two StakingPools
+     * @param _token ERC20 token address
+     * @param _initialStake Initial stake amount
+     * @param _attackerAsset Asset used by the attacker pool
+     * @param _defenderAsset Asset used by the defender pool
+     * @return gameId ID of the new game
+     * @return gameAddress Address of the new game contract
+     * @return attackerPoolAddress Address of the attacker's StakingPool
+     * @return defenderPoolAddress Address of the defender's StakingPool
      */
     function createGameWithPools(
         address _token,
@@ -134,14 +138,14 @@ contract DisputeGameFactory is Ownable {
         require(address(_defenderAsset) != address(0), "Invalid defender asset");
         require(_token != address(0), "Token address cannot be zero");
         
-        // 1. 创建两个StakingPool
+        // 1. Create two StakingPools
         address attackerPoolClone = stakingPoolImplementation.clone();
         address defenderPoolClone = stakingPoolImplementation.clone();
         
-        // 2. 使用Clone模式创建新的OptimisticDisputeGame实例
+        // 2. Use Clone pattern to create a new OptimisticDisputeGame instance
         address gameClone = optimisticGameImplementation.clone();
         
-        // 3. 初始化游戏合约，使用两个StakingPool作为attacker和defender
+        // 3. Initialize the game contract using the two StakingPools as attacker and defender
         OptimisticDisputeGame(gameClone).initialize(
             attackerPoolClone,
             defenderPoolClone,
@@ -149,20 +153,20 @@ contract DisputeGameFactory is Ownable {
             _initialStake
         );
         
-        // 4. 分配游戏ID
+        // 4. Assign game ID
         gameId = ++gameCount;
         gameAddress = gameClone;
         attackerPoolAddress = attackerPoolClone;
         defenderPoolAddress = defenderPoolClone;
         
-        // 5. 初始化两个StakingPool
+        // 5. Initialize the two StakingPools
         string memory attackerName = string(abi.encodePacked("Attacker Pool #", _toString(gameId)));
         string memory defenderName = string(abi.encodePacked("Defender Pool #", _toString(gameId)));
         
         string memory attackerSymbol = string(abi.encodePacked("ATK", _toString(gameId)));
         string memory defenderSymbol = string(abi.encodePacked("DEF", _toString(gameId)));
         
-        // 修复类型转换问题，使用接口调用模式
+        // Fix type conversion issues using interface call pattern
         (bool successAttacker,) = attackerPoolClone.call(
             abi.encodeWithSelector(
                 bytes4(keccak256("initialize(address,string,string,address,uint8,address,address)")),
@@ -191,7 +195,7 @@ contract DisputeGameFactory is Ownable {
         );
         require(successDefender, "Failed to initialize defender pool");
         
-        // 6. 存储游戏信息
+        // 6. Store game information
         games[gameId] = GameInfo({
             gameType: GameType.OPTIMISTIC,
             gameAddress: gameAddress,
@@ -204,11 +208,11 @@ contract DisputeGameFactory is Ownable {
             defenderPool: defenderPoolAddress
         });
         
-        // 7. 更新用户参与的游戏记录
+        // 7. Update record of games the user has participated in
         userGames[attackerPoolAddress].push(gameId);
         userGames[defenderPoolAddress].push(gameId);
         
-        // 8. 发出事件
+        // 8. Emit events
         emit GameCreated(
             gameId,
             GameType.OPTIMISTIC,
@@ -229,8 +233,8 @@ contract DisputeGameFactory is Ownable {
     }
     
     /**
-     * @dev 设置OptimisticDisputeGame实现合约地址
-     * @param _implementation 新的实现合约地址
+     * @notice Set the OptimisticDisputeGame implementation contract address
+     * @param _implementation New implementation contract address
      */
     function setOptimisticGameImplementation(address _implementation) external onlyOwner {
         require(_implementation != address(0), "Implementation cannot be zero address");
@@ -238,8 +242,8 @@ contract DisputeGameFactory is Ownable {
     }
     
     /**
-     * @dev 设置StakingPool实现合约地址
-     * @param _implementation 新的实现合约地址
+     * @notice Set the StakingPool implementation contract address
+     * @param _implementation New implementation contract address
      */
     function setStakingPoolImplementation(address _implementation) external onlyOwner {
         require(_implementation != address(0), "Implementation cannot be zero address");
@@ -247,9 +251,9 @@ contract DisputeGameFactory is Ownable {
     }
     
     /**
-     * @dev 获取游戏信息
-     * @param _gameId 游戏ID
-     * @return 游戏信息结构
+     * @notice Get game information
+     * @param _gameId Game ID
+     * @return Game information structure
      */
     function getGameInfo(uint256 _gameId) external view returns (GameInfo memory) {
         require(_gameId > 0 && _gameId <= gameCount, "Invalid game ID");
@@ -257,18 +261,18 @@ contract DisputeGameFactory is Ownable {
     }
     
     /**
-     * @dev 获取用户参与的所有游戏ID
-     * @param _user 用户地址
-     * @return 游戏ID数组
+     * @notice Get all game IDs that a user has participated in
+     * @param _user User address
+     * @return Array of game IDs
      */
     function getUserGames(address _user) external view returns (uint256[] memory) {
         return userGames[_user];
     }
     
     /**
-     * @dev 获取用户作为攻击者的游戏
-     * @param _user 用户地址
-     * @return 游戏ID数组
+     * @notice Get games where the user is an attacker
+     * @param _user User address
+     * @return Array of game IDs
      */
     function getUserAttackerGames(address _user) external view returns (uint256[] memory) {
         uint256[] memory userGameIds = userGames[_user];
@@ -282,7 +286,7 @@ contract DisputeGameFactory is Ownable {
             }
         }
         
-        // 裁剪数组到实际大小
+        // Resize array to actual size
         uint256[] memory result = new uint256[](count);
         for (uint256 i = 0; i < count; i++) {
             result[i] = attackerGames[i];
@@ -292,9 +296,9 @@ contract DisputeGameFactory is Ownable {
     }
     
     /**
-     * @dev 获取用户作为防御者的游戏
-     * @param _user 用户地址
-     * @return 游戏ID数组
+     * @notice Get games where the user is a defender
+     * @param _user User address
+     * @return Array of game IDs
      */
     function getUserDefenderGames(address _user) external view returns (uint256[] memory) {
         uint256[] memory userGameIds = userGames[_user];
@@ -308,7 +312,7 @@ contract DisputeGameFactory is Ownable {
             }
         }
         
-        // 裁剪数组到实际大小
+        // Resize array to actual size
         uint256[] memory result = new uint256[](count);
         for (uint256 i = 0; i < count; i++) {
             result[i] = defenderGames[i];
@@ -318,9 +322,9 @@ contract DisputeGameFactory is Ownable {
     }
     
     /**
-     * @dev 获取特定代币的所有游戏
-     * @param _token 代币地址
-     * @return 游戏ID数组
+     * @notice Get all games for a specific token
+     * @param _token Token address
+     * @return Array of game IDs
      */
     function getTokenGames(address _token) external view returns (uint256[] memory) {
         uint256[] memory tokenGames = new uint256[](gameCount);
@@ -333,7 +337,7 @@ contract DisputeGameFactory is Ownable {
             }
         }
         
-        // 裁剪数组到实际大小
+        // Resize array to actual size
         uint256[] memory result = new uint256[](count);
         for (uint256 i = 0; i < count; i++) {
             result[i] = tokenGames[i];
@@ -343,10 +347,10 @@ contract DisputeGameFactory is Ownable {
     }
     
     /**
-     * @dev 获取活跃游戏列表 (不进行链上状态检查，仅返回创建的游戏)
-     * @param _startId 起始游戏ID
-     * @param _count 获取的游戏数量
-     * @return 游戏ID数组
+     * @notice Get list of active games (does not check on-chain state, only returns created games)
+     * @param _startId Starting game ID
+     * @param _count Number of games to fetch
+     * @return Array of game IDs
      */
     function getActiveGames(uint256 _startId, uint256 _count) external view returns (uint256[] memory) {
         require(_startId > 0 && _startId <= gameCount, "Invalid start ID");
@@ -366,25 +370,25 @@ contract DisputeGameFactory is Ownable {
     }
     
     /**
-     * @dev 设置默认超时扩展时间
-     * @param _timeoutExtension 新的超时扩展时间（秒）
+     * @notice Set the default timeout extension period
+     * @param _timeoutExtension New timeout extension period (in seconds)
      */
     function setDefaultTimeoutExtension(uint256 _timeoutExtension) external onlyOwner {
         defaultTimeoutExtension = _timeoutExtension;
     }
     
     /**
-     * @dev 将数字转换为字符串的辅助函数
-     * @param value 要转换的数字
-     * @return 数字的字符串表示
+     * @notice Helper function to convert a number to a string
+     * @param value Number to convert
+     * @return String representation of the number
      */
     function _toString(uint256 value) internal pure returns (string memory) {
-        // 特殊情况处理：值为0
+        // Handle special case: value is 0
         if (value == 0) {
             return "0";
         }
         
-        // 计算数字的位数
+        // Calculate number of digits
         uint256 temp = value;
         uint256 digits;
         while (temp != 0) {
@@ -392,7 +396,7 @@ contract DisputeGameFactory is Ownable {
             temp /= 10;
         }
         
-        // 构建字符串
+        // Build string
         bytes memory buffer = new bytes(digits);
         while (value != 0) {
             digits -= 1;

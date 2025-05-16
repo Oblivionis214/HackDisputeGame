@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+/**
+ * @title SystemFactory Test
+ * @author Oblivionis
+ * @notice Test suite for the SystemFactory contract
+ * @dev Tests the deployment and functionality of the SystemFactory
+ */
+
 import "forge-std/Test.sol";
 import "../src/SystemFactory.sol";
 import "../src/ERC20Wrapper.sol";
@@ -9,7 +16,11 @@ import "../src/DisputeGame/OptimisticDisputeGame.sol";
 import "../src/DisputeResolver/OptimisticDisputeGameResolver.sol";
 
 //forge test --match-contract SystemFactoryTest -vvv
-// 内联定义IERC20接口，避免外部导入
+
+/**
+ * @title TestIERC20
+ * @dev Inline definition of the IERC20 interface to avoid external dependencies
+ */
 interface TestIERC20 {
     function totalSupply() external view returns (uint256);
     function balanceOf(address account) external view returns (uint256);
@@ -22,7 +33,10 @@ interface TestIERC20 {
     event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
-// 简单的ERC20测试代币合约
+/**
+ * @title ERC20Mock
+ * @dev Simple ERC20 token implementation for testing purposes
+ */
 contract ERC20Mock is TestIERC20 {
     mapping(address => uint256) private _balances;
     mapping(address => mapping(address => uint256)) private _allowances;
@@ -119,42 +133,52 @@ contract ERC20Mock is TestIERC20 {
     }
 }
 
-//forge test --match-contract SystemFactoryTest -vvv
+/**
+ * @title SystemFactoryTest
+ * @notice Test contract for the SystemFactory implementation
+ * @dev Run tests with: forge test --match-contract SystemFactoryTest -vvv
+ */
 contract SystemFactoryTest is Test {
-    // 测试要使用的合约实例
+    // Contract instances for testing
     SystemFactory public systemFactory;
-    ERC20Mock public mockToken; // 用于测试的模拟ERC20代币
+    ERC20Mock public mockToken; // Mock ERC20 token for testing
     
-    // 测试参数
+    // Test parameters
     address public deployer = address(1);
-    uint256 public validationTimeout = 3600; // 1小时
-    uint256 public disputeStake = 1000 * 10**18; // 1000代币
+    uint256 public validationTimeout = 3600; // 1 hour
+    uint256 public disputeStake = 1000 * 10**18; // 1000 tokens
     string public wrapperName = "Wrapped Test Token";
     string public wrapperSymbol = "wTEST";
     
-    // 设置测试环境
+    /**
+     * @notice Set up the test environment
+     * @dev Called before each test
+     */
     function setUp() public {
-        // 使用模拟账户
+        // Use mock account
         vm.startPrank(deployer);
         
-        // 部署模拟ERC20代币
+        // Deploy mock ERC20 token
         mockToken = new ERC20Mock("Test Token", "TEST");
         
-        // 铸造一些代币给测试账户
+        // Mint tokens to the test account
         mockToken.mint(deployer, 10000 * 10**18);
         
-        // 部署SystemFactory合约
+        // Deploy SystemFactory contract
         systemFactory = new SystemFactory();
         
         vm.stopPrank();
     }
     
-    // 测试deploySystem函数
+    /**
+     * @notice Test the deploySystem function
+     * @dev Verifies that all system components are correctly deployed and linked
+     */
     function testDeploySystem() public {
-        // 使用deployer账户
+        // Use deployer account
         vm.startPrank(deployer);
         
-        // 调用deploySystem函数
+        // Call deploySystem function
         SystemFactory.SystemInfo memory systemInfo = systemFactory.deploySystem(
             address(mockToken),
             validationTimeout,
@@ -163,45 +187,48 @@ contract SystemFactoryTest is Test {
             wrapperSymbol
         );
         
-        // 验证系统是否已部署
-        assertTrue(systemFactory.isSystemDeployed(address(mockToken)), unicode"系统未成功部署");
+        // Verify system is deployed
+        assertTrue(systemFactory.isSystemDeployed(address(mockToken)), "System not successfully deployed");
         
-        // 验证返回的系统信息
-        assertEq(systemInfo.erc20Address, address(mockToken), unicode"ERC20地址不匹配");
-        assertFalse(systemInfo.erc20Wrapper == address(0), unicode"ERC20Wrapper未部署");
-        assertFalse(systemInfo.disputeGameFactory == address(0), unicode"DisputeGameFactory未部署");
-        assertFalse(systemInfo.disputeResolver == address(0), unicode"DisputeResolver未部署");
-        assertFalse(systemInfo.gameImplementation == address(0), unicode"游戏实现未部署");
-        assertFalse(systemInfo.stakingPoolImplementation == address(0), unicode"质押池实现未部署");
+        // Verify returned system information
+        assertEq(systemInfo.erc20Address, address(mockToken), "ERC20 address does not match");
+        assertFalse(systemInfo.erc20Wrapper == address(0), "ERC20Wrapper not deployed");
+        assertFalse(systemInfo.disputeGameFactory == address(0), "DisputeGameFactory not deployed");
+        assertFalse(systemInfo.disputeResolver == address(0), "DisputeResolver not deployed");
+        assertFalse(systemInfo.gameImplementation == address(0), "Game implementation not deployed");
+        assertFalse(systemInfo.stakingPoolImplementation == address(0), "StakingPool implementation not deployed");
         
-        // 通过getSystemInfo查询并验证
+        // Query and verify system info
         SystemFactory.SystemInfo memory queriedInfo = systemFactory.getSystemInfo(address(mockToken));
-        assertEq(queriedInfo.erc20Address, systemInfo.erc20Address, unicode"查询的ERC20地址不匹配");
-        assertEq(queriedInfo.erc20Wrapper, systemInfo.erc20Wrapper, unicode"查询的ERC20Wrapper不匹配");
-        assertEq(queriedInfo.disputeGameFactory, systemInfo.disputeGameFactory, unicode"查询的DisputeGameFactory不匹配");
+        assertEq(queriedInfo.erc20Address, systemInfo.erc20Address, "Queried ERC20 address does not match");
+        assertEq(queriedInfo.erc20Wrapper, systemInfo.erc20Wrapper, "Queried ERC20Wrapper does not match");
+        assertEq(queriedInfo.disputeGameFactory, systemInfo.disputeGameFactory, "Queried DisputeGameFactory does not match");
         
-        // 验证ERC20Wrapper是否正确初始化
+        // Verify ERC20Wrapper initialization
         ERC20Wrapper wrapper = ERC20Wrapper(systemInfo.erc20Wrapper);
-        assertEq(address(wrapper.underlyingToken()), address(mockToken), unicode"Wrapper中的基础代币地址不匹配");
-        assertEq(wrapper.name(), wrapperName, unicode"Wrapper名称不匹配");
-        assertEq(wrapper.symbol(), wrapperSymbol, unicode"Wrapper符号不匹配");
+        assertEq(address(wrapper.underlyingToken()), address(mockToken), "Underlying token address in Wrapper does not match");
+        assertEq(wrapper.name(), wrapperName, "Wrapper name does not match");
+        assertEq(wrapper.symbol(), wrapperSymbol, "Wrapper symbol does not match");
         
-        // 验证DisputeResolver是否正确连接
+        // Verify DisputeResolver connection
         OptimisticDisputeGameResolver resolver = OptimisticDisputeGameResolver(systemInfo.disputeResolver);
-        assertEq(address(resolver.gameFactory()), systemInfo.disputeGameFactory, unicode"Resolver中的工厂地址不匹配");
-        assertEq(resolver.disputeStake(), disputeStake, unicode"争议质押金额不匹配");
-        assertEq(resolver.validationTimeout(), validationTimeout, unicode"验证超时时间不匹配");
-        assertEq(resolver.tokenWrapper(), systemInfo.erc20Wrapper, unicode"Resolver中的Wrapper地址不匹配");
+        assertEq(address(resolver.gameFactory()), systemInfo.disputeGameFactory, "Factory address in Resolver does not match");
+        assertEq(resolver.disputeStake(), disputeStake, "Dispute stake does not match");
+        assertEq(resolver.validationTimeout(), validationTimeout, "Validation timeout does not match");
+        assertEq(resolver.tokenWrapper(), systemInfo.erc20Wrapper, "Wrapper address in Resolver does not match");
         
         vm.stopPrank();
     }
     
-    // 测试重复部署同一代币系统
+    /**
+     * @notice Test duplicate system deployment prevention
+     * @dev Verifies that the same token cannot be deployed twice
+     */
     function testCannotDeployDuplicateSystem() public {
-        // 使用deployer账户
+        // Use deployer account
         vm.startPrank(deployer);
         
-        // 首次部署系统
+        // First system deployment
         systemFactory.deploySystem(
             address(mockToken),
             validationTimeout,
@@ -210,7 +237,7 @@ contract SystemFactoryTest is Test {
             wrapperSymbol
         );
         
-        // 尝试再次部署相同代币的系统，应该失败
+        // Attempt to deploy system with same token, should fail
         vm.expectRevert("System already deployed for this token");
         systemFactory.deploySystem(
             address(mockToken),
@@ -223,12 +250,15 @@ contract SystemFactoryTest is Test {
         vm.stopPrank();
     }
     
-    // 测试使用零地址作为ERC20地址
+    /**
+     * @notice Test zero address validation
+     * @dev Verifies that zero address cannot be used as ERC20 address
+     */
     function testCannotDeployWithZeroAddress() public {
-        // 使用deployer账户
+        // Use deployer account
         vm.startPrank(deployer);
         
-        // 尝试使用零地址部署，应该失败
+        // Attempt to deploy with zero address, should fail
         vm.expectRevert("ERC20 address cannot be zero");
         systemFactory.deploySystem(
             address(0),
@@ -241,57 +271,63 @@ contract SystemFactoryTest is Test {
         vm.stopPrank();
     }
     
-    // 测试无效参数
+    /**
+     * @notice Test invalid parameters
+     * @dev Verifies that system deployment fails with invalid parameters
+     */
     function testCannotDeployWithInvalidParams() public {
-        // 使用deployer账户
+        // Use deployer account
         vm.startPrank(deployer);
         
-        // 测试零验证超时时间
+        // Test zero validation timeout
         vm.expectRevert("Validation timeout must be greater than 0");
         systemFactory.deploySystem(
             address(mockToken),
-            0, // 无效的验证超时时间
+            0, // Invalid validation timeout
             disputeStake,
             wrapperName,
             wrapperSymbol
         );
         
-        // 测试零争议质押金额
+        // Test zero dispute stake
         vm.expectRevert("Dispute stake must be greater than 0");
         systemFactory.deploySystem(
             address(mockToken),
             validationTimeout,
-            0, // 无效的争议质押金额
+            0, // Invalid dispute stake
             wrapperName,
             wrapperSymbol
         );
         
-        // 测试空包装器名称
+        // Test empty wrapper name
         vm.expectRevert("Wrapper name cannot be empty");
         systemFactory.deploySystem(
             address(mockToken),
             validationTimeout,
             disputeStake,
-            "", // 空名称
+            "", // Empty name
             wrapperSymbol
         );
         
-        // 测试空包装器符号
+        // Test empty wrapper symbol
         vm.expectRevert("Wrapper symbol cannot be empty");
         systemFactory.deploySystem(
             address(mockToken),
             validationTimeout,
             disputeStake,
             wrapperName,
-            "" // 空符号
+            "" // Empty symbol
         );
         
         vm.stopPrank();
     }
     
-    // 测试完整系统功能性 - 验证用户可以通过部署的系统进行存款
+    /**
+     * @notice Test complete system functionality
+     * @dev Verifies user can deposit through the deployed system
+     */
     function testSystemFunctionality() public {
-        // 部署系统
+        // Deploy system
         vm.startPrank(deployer);
         SystemFactory.SystemInfo memory systemInfo = systemFactory.deploySystem(
             address(mockToken),
@@ -301,19 +337,19 @@ contract SystemFactoryTest is Test {
             wrapperSymbol
         );
         
-        // 准备进行存款
+        // Prepare for deposit
         uint256 depositAmount = 100 * 10**18;
         ERC20Wrapper wrapper = ERC20Wrapper(systemInfo.erc20Wrapper);
         
-        // 批准Wrapper合约使用代币
+        // Approve token usage for Wrapper contract
         mockToken.approve(address(wrapper), depositAmount);
         
-        // 执行存款
+        // Execute deposit
         wrapper.deposit(depositAmount);
         
-        // 验证存款结果
-        assertEq(wrapper.balanceOf(deployer), depositAmount, unicode"存款后Wrapper代币余额不正确");
-        assertEq(mockToken.balanceOf(address(wrapper)), depositAmount, unicode"Wrapper合约中的基础代币余额不正确");
+        // Verify deposit results
+        assertEq(wrapper.balanceOf(deployer), depositAmount, "Wrapped token balance after deposit is incorrect");
+        assertEq(mockToken.balanceOf(address(wrapper)), depositAmount, "Base token balance in Wrapper contract is incorrect");
         
         vm.stopPrank();
     }
