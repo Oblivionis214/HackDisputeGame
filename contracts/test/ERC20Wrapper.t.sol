@@ -56,7 +56,7 @@ contract ERC20WrapperTest is Test {
     function setUp() public {
         // 部署模拟合约
         underlyingToken = new MockToken();
-        disputeResolver = new MockDisputeResolver();
+        disputeResolver = MockDisputeResolver(address(1));
         
         // 部署需要测试的合约
         wrapper = new ERC20Wrapper(

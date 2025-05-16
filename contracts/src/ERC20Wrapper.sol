@@ -25,7 +25,7 @@ contract ERC20Wrapper is ERC20, ITokenWrapper {
         address recipient;
     }
     
-    /// @notice Maps user addresses to their withdrawal requests by requestId
+    /// @notice user addresses => requestId
     mapping (address => mapping (uint256 => WithdrawRequest)) public withdrawRequests;
     
     IERC20 public underlyingToken;
@@ -44,8 +44,6 @@ contract ERC20Wrapper is ERC20, ITokenWrapper {
         address _underlyingToken,
         address __disputeResolver
     ) ERC20(_name, _symbol) {
-        require(_underlyingToken != address(0), "Invalid underlying token");
-        require(__disputeResolver != address(0), "Invalid dispute resolver");
         underlyingToken = IERC20(_underlyingToken);
         _disputeResolver = IDisputeResolver(__disputeResolver);
     }
