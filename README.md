@@ -3,13 +3,38 @@ HackDisputeGame monorepo for ETHBeijing 2025
 
 ## Project Introduction
 
-HackDisputeGame is a token wrapping system based on optimistic dispute games, allowing users to stake tokens to participate in dispute resolution. The system consists of multiple components:
+HackDisputeGame is a universal Optimistic Withdraw Queue solution designed for all on-chain applications, with the core goal of minimizing the risk of hacks. It enables integrated protocols to:
+
+- Integrate with a single click — no logic changes or redeployment required
+
+- Preserve the original trust model — no additional trust assumptions, maintaining full decentralization
+
+- Maintain seamless user experience — with support for EIP-7702, users need to take no extra steps
 
 - `DisputeGameFactory`: Responsible for creating dispute game instances
 - `StakingPool`: User staking pool, supporting both attacker and defender roles
 - `OptimisticDisputeGameResolver`: Dispute resolver
 - `ERC20Wrapper`: Token wrapping contract
 - `SystemFactory`: System deployment factory
+
+## Deployed address
+
+The following are the contract deployment addresses on Ethereum Sepolia testnet:
+
+| Contract  | Address |
+|---------|------|
+| OptimisticDisputeGame impl | 0x04409D09EA82d3954A23655f3640428C879F7442 |
+| StakingPool impl | 0x0fbeBD16a02c26ecE90f39cd422D317C17dD808d |
+| SystemFactory | 0x0aE4730BE8Dc6FDE9e4F40AFBEfaF63b3A383C1C |
+
+We deployed a demo at:
+
+| Contract Name | Address |
+|---------|------|
+| Mock WETH | 0x1df44B5C1160fca5AE1d9430D221A6c39CCEd00D |
+| TokenWrapper | 0x0E5eee2Ae97ED5FDE258fdE27dB3d85c97124bC0 |
+| OptimisticDisputeGameResolver | 0x1ebAbed3057e4C53F1d7E002046b3b832a330852 |
+| DisputeGameFactory | 0xeD6f6b001D9d2A2517c196D56C29e2666056349A |
 
 ## Environment Setup
 
