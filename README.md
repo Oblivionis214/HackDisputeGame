@@ -19,6 +19,13 @@ HackDisputeGame is a universal optimistic withdraw queue solution designed for a
 - `ERC20Wrapper`: Token wrapping contract
 - `SystemFactory`: System deployment factory
 
+## Deploy flow chart
+
+<pre><code>```mermaid flowchart TD SystemFactory --> deploySystem deploySystem --> ERC20Wrapper deploySystem --> OptimisticDisputeGameResolver deploySystem --> DisputeGameFactory ```</code></pre>
+
+<pre><code>```mermaid flowchart TD DisputeGameFactory --> OptimisticDisputeGame DisputeGameFactory --> AttackerPool DisputeGameFactory --> DefenderPool ```</code></pre>
+
+
 ## Deployed address
 
 The following are the contract deployment addresses on Ethereum Sepolia testnet:
