@@ -3,13 +3,15 @@ HackDisputeGame monorepo for ETHBeijing 2025
 
 ## Project Introduction
 
-HackDisputeGame is a universal Optimistic Withdraw Queue solution designed for all on-chain applications, with the core goal of minimizing the risk of hacks. It enables integrated protocols to:
+HackDisputeGame is a universal optimistic withdraw queue solution designed for all on-chain applications, with the core goal of minimizing the risk of all hacks. It enables integrated protocols to:
 
 - Integrate with a single click — no logic changes or redeployment required
 
 - Preserve the original trust model — no additional trust assumptions, maintaining full decentralization
 
 - Maintain seamless user experience — with support for EIP-7702, users need to take no extra steps
+
+## System components
 
 - `DisputeGameFactory`: Responsible for creating dispute game instances
 - `StakingPool`: User staking pool, supporting both attacker and defender roles
