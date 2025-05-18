@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useContractRead } from 'wagmi'
+import { readContract } from 'wagmi/actions'
 import disputeResolverABI from '../contracts/DisputeResolverABI'
 
 const DISPUTE_RESOLVER_CONTRACT = '0x1ebAbed3057e4C53F1d7E002046b3b832a330852'
+
+// 零地址常量
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 interface WithdrawRequest {
   id: number
@@ -11,6 +15,44 @@ interface WithdrawRequest {
   timestamp: bigint
   disputed: boolean
   valid: boolean
+}
+
+// 单个请求详情的钩子函数
+export function useSingleWithdrawRequest(requestId: number) {
+  const [request, setRequest] = useState<WithdrawRequest | null>(null)
+
+  const { data, isLoading, error } = useContractRead({
+    address: DISPUTE_RESOLVER_CONTRACT,
+    abi: disputeResolverABI,
+    functionName: 'getRequestDetails',
+    args: [requestId],
+  })
+
+  useEffect(() => {
+    if (!data) return
+
+    try {
+      // 将合约返回的数据转换为更有用的格式
+      const [user, amount, timestamp, disputed, valid] = data as [string, bigint, bigint, boolean, boolean]
+      
+      setRequest({
+        id: requestId,
+        user,
+        amount,
+        timestamp,
+        disputed,
+        valid
+      })
+    } catch (err) {
+      console.error(`解析请求ID ${requestId} 数据时出错:`, err)
+    }
+  }, [data, requestId])
+
+  return {
+    request,
+    isLoading,
+    error,
+  }
 }
 
 export function useWithdrawRequestDetails(requestId: number | null) {
@@ -25,19 +67,23 @@ export function useWithdrawRequestDetails(requestId: number | null) {
   })
 
   useEffect(() => {
-    if (!data || !requestId) return
+    if (!data || requestId === null) return
 
-    // 将合约返回的数据转换为更有用的格式
-    const [user, amount, timestamp, disputed, valid] = data as [string, bigint, bigint, boolean, boolean]
-    
-    setRequestDetails({
-      id: requestId,
-      user,
-      amount,
-      timestamp,
-      disputed,
-      valid
-    })
+    try {
+      // 将合约返回的数据转换为更有用的格式
+      const [user, amount, timestamp, disputed, valid] = data as [string, bigint, bigint, boolean, boolean]
+      
+      setRequestDetails({
+        id: requestId,
+        user,
+        amount,
+        timestamp,
+        disputed,
+        valid
+      })
+    } catch (err) {
+      console.error(`解析请求ID ${requestId} 数据时出错:`, err)
+    }
   }, [data, requestId])
 
   return {
@@ -47,92 +93,70 @@ export function useWithdrawRequestDetails(requestId: number | null) {
   }
 }
 
-export function useUserRequestIds(userAddress: string | undefined) {
-  const [requestIds, setRequestIds] = useState<number[]>([])
-
-  const { data, isLoading, error } = useContractRead({
-    address: DISPUTE_RESOLVER_CONTRACT,
-    abi: disputeResolverABI,
-    functionName: 'getUserRequestIds',
-    args: userAddress ? [userAddress] : undefined,
-    enabled: !!userAddress,
-    watch: true,
-  })
-
-  useEffect(() => {
-    if (!data) return
-    
-    const ids = (data as bigint[]).map(id => Number(id))
-    setRequestIds(ids)
-  }, [data])
-
-  return {
-    requestIds,
-    isLoading,
-    error,
-  }
-}
-
 export function useAllWithdrawRequests(userAddress: string | undefined) {
   const [requests, setRequests] = useState<WithdrawRequest[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
-
-  const { 
-    requestIds, 
-    isLoading: isLoadingIds, 
-    error: idsError 
-  } = useUserRequestIds(userAddress)
-
+  
   useEffect(() => {
-    if (isLoadingIds) return
-    if (idsError) {
-      setError(idsError as Error)
-      setIsLoading(false)
-      return
-    }
-
-    if (!requestIds || requestIds.length === 0) {
-      setRequests([])
-      setIsLoading(false)
-      return
-    }
-
-    // 创建获取每个请求详情的Promise数组
-    const fetchPromises = requestIds.map(async (id) => {
+    // 标记组件为加载中
+    setIsLoading(true)
+    setError(null)
+    
+    const fetchAllRequests = async () => {
       try {
-        // 这里实际应该使用contract.getRequestDetails(id)调用合约
-        // 但为了简化示例，我们假设这里已经获取到了数据
-        const details = await new Promise<WithdrawRequest>((resolve) => {
-          setTimeout(() => {
-            resolve({
-              id,
-              user: userAddress || '0x0',
-              amount: BigInt(1000000000000000000), // 1 ETH
-              timestamp: BigInt(Math.floor(Date.now() / 1000) - id * 86400), // 从当前时间开始，每个请求间隔1天
-              disputed: false,
-              valid: id % 2 === 0, // 模拟一些请求已验证，一些未验证
+        const allRequests: WithdrawRequest[] = []
+        let index = 0
+        const MAX_INDEX = 100 // 设置一个上限，防止无限循环
+        
+        // 从0开始依次获取，直到遇到用户地址为0或金额为0
+        while (index < MAX_INDEX) {
+          try {
+            const data = await readContract({
+              address: DISPUTE_RESOLVER_CONTRACT,
+              abi: disputeResolverABI,
+              functionName: 'getRequestDetails',
+              args: [index]
             })
-          }, 500)
-        })
-        return details
+            
+            const [user, amount, timestamp, disputed, valid] = data as [string, bigint, bigint, boolean, boolean]
+            
+            // 如果用户地址为0或金额为0，则表示已经没有更多有效请求
+            if (user === ZERO_ADDRESS || amount === BigInt(0)) {
+              break
+            }
+            
+            // 添加有效请求
+            allRequests.push({
+              id: index,
+              user,
+              amount,
+              timestamp,
+              disputed,
+              valid
+            })
+            
+            // 继续下一个索引
+            index++
+          } catch (err) {
+            console.error(`获取请求ID ${index} 失败:`, err)
+            // 遇到错误，停止获取
+            break
+          }
+        }
+        
+        setRequests(allRequests)
       } catch (err) {
-        console.error(`获取请求ID ${id} 的详情失败:`, err)
-        return null
+        console.error('获取请求列表失败:', err)
+        setError(err instanceof Error ? err : new Error(String(err)))
+      } finally {
+        setIsLoading(false)
       }
-    })
-
-    Promise.all(fetchPromises)
-      .then((results) => {
-        setRequests(results.filter((r): r is WithdrawRequest => r !== null))
-        setIsLoading(false)
-      })
-      .catch((err) => {
-        setError(err as Error)
-        setIsLoading(false)
-      })
-  }, [requestIds, isLoadingIds, idsError, userAddress])
-
+    }
+    
+    fetchAllRequests()
+  }, []) // 只在组件挂载时获取一次
+  
   return {
     requests,
     isLoading,

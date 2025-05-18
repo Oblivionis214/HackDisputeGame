@@ -1,48 +1,51 @@
 import { useState } from 'react'
-import { useContractWrite, useAccount } from 'wagmi'
-import disputeResolverABI from '../contracts/DisputeResolverABI'
+import { useAccount } from 'wagmi'
 import { useAllWithdrawRequests } from '../hooks/useContractDetails'
 import GameList from './GameList'
+import DisputeModal from './DisputeModal'
 
 interface WithdrawRequestListProps {
   tokenAddress: string
 }
 
-const DISPUTE_RESOLVER_CONTRACT = '0x1ebAbed3057e4C53F1d7E002046b3b832a330852'
-
 const WithdrawRequestList = ({ tokenAddress }: WithdrawRequestListProps) => {
   const { address } = useAccount()
   const { requests, isLoading, error } = useAllWithdrawRequests(address)
   const [disputedRequestIds, setDisputedRequestIds] = useState<number[]>([])
+  
+  // 用于模态框的状态
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null)
 
-  // 用于执行争议操作的合约写入
-  const { write: disputeRequest, data: disputeData } = useContractWrite({
-    address: DISPUTE_RESOLVER_CONTRACT,
-    abi: disputeResolverABI,
-    functionName: 'dispute',
-  })
-
-  // 监听交易成功
-  const handleDispute = (requestId: number) => {
-    if (!address) return
-    
-    // 记录正在处理的请求ID
-    const currentRequestId = requestId;
-    
-    disputeRequest({
-      args: [requestId],
-    })
-    
-    // 假设交易成功，将请求ID添加到disputedRequestIds
-    // 注意：实际应用中应该监听交易的确认事件
-    if (currentRequestId) {
+  // 处理提起争议按钮点击
+  const handleDisputeClick = (requestId: number) => {
+    setSelectedRequestId(requestId)
+    setIsModalOpen(true)
+  }
+  
+  // 处理模态框关闭
+  const handleModalClose = () => {
+    setIsModalOpen(false)
+  }
+  
+  // 记录成功提交的请求ID
+  const recordDisputedRequest = (requestId: number) => {
+    if (requestId) {
       setDisputedRequestIds(prev => {
-        if (!prev.includes(currentRequestId)) {
-          return [...prev, currentRequestId];
+        if (!prev.includes(requestId)) {
+          return [...prev, requestId]
         }
-        return prev;
-      });
+        return prev
+      })
     }
+  }
+  
+  // 处理模态框提交
+  const handleModalSubmit = (requestId: number) => {
+    // 记录已提交争议的请求ID
+    recordDisputedRequest(requestId)
+    // 关闭模态框
+    handleModalClose()
   }
 
   return (
@@ -100,11 +103,11 @@ const WithdrawRequestList = ({ tokenAddress }: WithdrawRequestListProps) => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
-                          onClick={() => handleDispute(request.id)}
-                          disabled={request.disputed || request.valid}
+                          onClick={() => handleDisputeClick(request.id)}
+                          disabled={request.disputed || request.valid || disputedRequestIds.includes(request.id)}
                           className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          提起争议
+                          {disputedRequestIds.includes(request.id) ? '已提交争议' : '提起争议'}
                         </button>
                       </td>
                     </tr>
@@ -118,6 +121,16 @@ const WithdrawRequestList = ({ tokenAddress }: WithdrawRequestListProps) => {
 
       {/* 显示用户参与的所有游戏 */}
       <GameList />
+      
+      {/* 争议模态框 */}
+      {selectedRequestId !== null && (
+        <DisputeModal 
+          isOpen={isModalOpen} 
+          onClose={handleModalClose} 
+          requestId={selectedRequestId}
+          onSubmit={handleModalSubmit}
+        />
+      )}
     </>
   )
 }

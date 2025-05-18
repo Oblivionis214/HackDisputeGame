@@ -1,32 +1,6 @@
 import { useAllGamesFromMapping, GameType } from '../hooks/useGameFactoryDetails'
 import { formatEther } from 'viem'
 
-const getGameTypeText = (type: GameType): string => {
-  switch (type) {
-    case GameType.NONE:
-      return '无'
-    case GameType.OPTIMISTIC:
-      return '乐观式'
-    case GameType.INTERACTIVE:
-      return '交互式'
-    default:
-      return '未知'
-  }
-}
-
-const getGameTypeClass = (type: GameType): string => {
-  switch (type) {
-    case GameType.NONE:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-    case GameType.OPTIMISTIC:
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-    case GameType.INTERACTIVE:
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-    default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-  }
-}
-
 const formatAddress = (address: string): string => {
   return `${address.substring(0, 6)}...${address.substring(38)}`
 }
@@ -66,8 +40,8 @@ const GameList = () => {
                       {game.gameId}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getGameTypeClass(game.gameType)}`}>
-                        {getGameTypeText(game.gameType)}
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                        optimistic
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">

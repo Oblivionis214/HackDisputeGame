@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import TokenVerification from './components/TokenVerification'
 import WithdrawRequestList from './components/WithdrawRequestList'
+import WrapperOperations from './components/WrapperOperations'
 
 function App() {
   const [isVerified, setIsVerified] = useState(false)
@@ -28,7 +29,17 @@ function App() {
               }}
             />
           ) : (
-            <WithdrawRequestList tokenAddress={tokenAddress} />
+            <div className="flex flex-col md:flex-row gap-6">
+              {/* 左侧 Wrapper 操作区域 (1/3宽度) */}
+              <div className="w-full md:w-1/3">
+                <WrapperOperations />
+              </div>
+              
+              {/* 右侧提款请求列表区域 (2/3宽度) */}
+              <div className="w-full md:w-2/3">
+                <WithdrawRequestList tokenAddress={tokenAddress} />
+              </div>
+            </div>
           )}
         </main>
       </div>
